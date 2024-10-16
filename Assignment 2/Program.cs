@@ -4,6 +4,21 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
+class User
+{
+    public string UserName { get; set; }
+    public string PasswordHash { get; set; }
+    public int CellReference { get; set; }
+
+    public User(string userName, string passwordHash, int cellReference)
+    {
+        UserName = userName;
+        PasswordHash = passwordHash;
+        CellReference = cellReference;
+    }
+
+}
+
 class Program
 {
     static void Main(string[] args)
@@ -11,25 +26,27 @@ class Program
         string filePath = "C:\\Users\\TE-65\\Downloads\\Book.xlsx";
         using (var workbook = new XLWorkbook(filePath))
         {
+            List<User> users = new List<User>();
+
             var sheet1 = workbook.Worksheet(1);
             var sheet2 = workbook.Worksheet(2);
 
             var headers1 = GetHeaders(sheet1);
             var headers2 = GetHeaders(sheet2);
 
-            var passwordsSheet1 = GetPasswords(sheet1, headers1, "PasswordHash");
-            var passwordsSheet2 = GetPasswords(sheet2, headers2, "PasswordHash");
+            var usersSheet1 = GetPasswords(sheet1, headers1, "PasswordHash");
+            var usersSheet2 = GetPasswords(sheet2, headers2, "PasswordHash");
 
-            List<int> list = ComparePasswords(passwordsSheet1, passwordsSheet2);
+            List<User> list = ComparePasswords(usersSheet1, usersSheet2);
             int count = 0;
             List<List<string>> result = new List<List<string>>();
 
             foreach (var item in list)
             {
-                GetDataFromRow(sheet1, item);
-                result.Add(GetDataFromRow(sheet1, item));
+                GetDataFromRow(sheet1, item.CellReference);
+                result.Add(GetDataFromRow(sheet1, item.CellReference));
                 count++;
-                Console.WriteLine(item);
+                Console.WriteLine(item.UserName);
             }
 
             Console.WriteLine(count);
@@ -89,39 +106,50 @@ class Program
         return headers;
     }
 
-    private static Dictionary<string, string> GetPasswords(IXLWorksheet sheet, Dictionary<string, string> headers, string passwordHeader)
+    private static List<User> GetPasswords(IXLWorksheet sheet, Dictionary<string, string> headers, string passwordHeader)
     {
-        var passwords = new Dictionary<string, string>();
+        //var passwords = new Dictionary<string, string>();
+        List<User> users = new List<User>();
         var passwordColumnIndex = headers.FirstOrDefault(h => h.Value == passwordHeader).Key;
+        var UsernameColumnIndex = headers.FirstOrDefault(h => h.Value == "UserName").Key;
 
         foreach (var row in sheet.RowsUsed().Skip(1))
         {
             var passwordCell = row.Cell(passwordColumnIndex);
             var password = passwordCell.GetString();
             var passwordCellReference = passwordCell.Address.ToString();
+            
+            var usernameCell = row.Cell(UsernameColumnIndex);
+            var useranme = usernameCell.GetString();
+            var usernameCellReference = usernameCell.Address.ToString();
 
             if (!string.IsNullOrEmpty(password))
             {
-                passwords[password] = passwordCellReference;
+                //passwords[password] = passwordCellReference;
+                users.Add(new User(useranme, password, int.Parse(passwordCellReference.Substring(1))));
             }
         }
 
-        return passwords;
+        return users;
     }
 
 
-    private static List<int> ComparePasswords(Dictionary<string, string> passwords1, Dictionary<string, string> passwords2)
+    private static List<User> ComparePasswords(List<User> users1, List<User> users2)
     {
-        var uniqueToSheet1 = passwords1.Keys.Except(passwords2.Keys);
-        List<int> list = new List<int>();
+        //var uniqueToSheet1 = passwords1.Keys.Except(passwords2.Keys);
+        List<User> passChanged = new List<User>();
 
-        foreach (var password in uniqueToSheet1)
+        foreach(var user in users1)
         {
-            int temp = int.Parse(passwords1[password].Substring(1));
-
-            list.Add(temp);
+            foreach(var user2 in users2)
+            {
+                if (user.UserName == user2.UserName && user.PasswordHash != user2.PasswordHash)
+                    passChanged.Add(user);
+            }
+                
         }
 
-        return list;
+
+        return passChanged;
     }
 }
